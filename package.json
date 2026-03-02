@@ -1,0 +1,34 @@
+{
+  "name": "@rhodey/aifren",
+  "author": "rhodey",
+  "description": "ai fren",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/rhodey/aifren.git"
+  },
+  "homepage": "https://github.com/rhodey/aifren",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "@bropat/fluent-ffmpeg": "^2.1.3",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "dotenv": "^17.3.1",
+    "fluent-ffmpeg-multistream": "^1.0.0",
+    "minimist": "^1.2.8",
+    "mkdirp": "^3.0.1",
+    "tinfoil": "^1.1.3"
+  },
+  "keywords": [
+    "ai",
+    "fren",
+    "friend",
+    "assistant",
+    "companion",
+    "voice"
+  ]
+}
