@@ -27,6 +27,13 @@ npm start
 npm start -- --audio voxtral-small-24b --llm llama3-3-70b --no-playback
 ```
 
+## roadmap
+i plan to replace the diy voice activity detection with [earshot](http://crates.io/crates/earshot)
+
+i plan to move onto a browser based setup after earshot is working
+
+i really just want to do a bare minimum voice assistant cli here
+
 ## license
 mike@rhodey.org
 
