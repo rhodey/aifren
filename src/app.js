@@ -2,13 +2,11 @@ import fs from 'fs'
 import dotenv from 'dotenv'
 import minimist from 'minimist'
 import { mkdirp } from 'mkdirp'
-import { exec } from 'child_process'
 import { Phrases } from './phrases.js'
-import { playAudio } from './speaker.js'
+import { playAudio, speak } from './speaker.js'
 import { TinfoilAI } from 'tinfoil'
 
 dotenv.config()
-const rate = 48_000
 const client = new TinfoilAI({ apiKey: process.env.tinfoil_key })
 
 function onError(err) {
@@ -16,54 +14,51 @@ function onError(err) {
   process.exit(1)
 }
 
-function canSpeak() {
-  return new Promise((res, rej) => {
-    exec(`mimic --version`, (error, stdout, stderr) => res(error.code !== 127))
-  })
-}
-
-async function speak(text) {
-  const ok = await canSpeak()
-  if (!ok) { return console.log(`!! install 'mimic' for TTS\n`) }
-  return new Promise((res, rej) => {
-    // primitive TTS (installed in docker)
-    exec(`mimic -t "${text}" -voice slt`, (error, stdout, stderr) => {
-      if (error) { return rej(new Error(`espeak-ng error ${error.code} ${stderr}`)) }
-      res()
-      console.log(``)
-    })
-  })
-}
-
 async function main() {
   await mkdirp('./fren')
   const args = minimist(process.argv.slice(2))
-  const playback = args.playback !== false
   const audioModel = args.audio ?? 'voxtral-small-24b' // also: whisper-large-v3-turbo
   const llmModel = args.llm ?? 'llama3-3-70b' // also: kimi-k2-5
-  console.log('audio', audioModel, 'llm', llmModel)
+  console.log('!! audio', audioModel, 'llm', llmModel)
+  console.log('!! ready')
 
-  const phrases = new Phrases(rate, './fren')
+  const rate_in = 16000
+  const rate_out = args['rate-out'] ?? 48000
+  const playback = args.playback !== false
+  const voice = args.voice ?? 'en+f3'
+
+  const phrases = new Phrases(rate_in, rate_out, './fren')
   const history = [{ role: 'system', content: 'respond with short messages.' }]
 
-  phrases.on('next', async (wav) => {
+  phrases.on('speech', () => {
+    console.log('!! speech')
+  })
+
+  phrases.on('next', async (mp3) => {
+    console.log('!! next')
     phrases.mute(1)
+
     if (playback) {
-      console.log('playback')
-      await playAudio(wav, rate).catch(onError)
+      await playAudio(mp3, rate_out).catch(onError)
     }
 
-    let text = await client.audio.transcriptions.create({ model: audioModel, file: fs.createReadStream(wav) })
+    console.log('!! transcribe')
+    let text = await client.audio.transcriptions.create({
+      model: audioModel, prompt: 'transcribe the audio',
+      file: fs.createReadStream(mp3)
+    })
     text = text.text.trim()
     console.log('user', text)
     history.push({ role: 'user', content: text })
 
+    console.log('!! llm')
     text = await client.chat.completions.create({ model: llmModel, temperature: 1, messages: history })
     text = text.choices[0].message.content.trim()
-    console.log('ai', text)
+    console.log('llm', text)
     history.push({ role: 'assistant', content: text })
 
-    await speak(text)
+    console.log('!! speak')
+    await speak(text, rate_out, voice)
     phrases.mute(0)
   })
 

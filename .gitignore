@@ -1,5 +1,6 @@
 .env*
 *\.swp
-fren/
+target/
 node_modules/
+fren/
 notes.txt

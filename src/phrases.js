@@ -1,33 +1,26 @@
+import split from 'split'
+import { spawn } from 'child_process'
 import { Mic } from './mic.js'
 import { Recorder } from './recorder.js'
 import { EventEmitter } from 'events'
 import ffmpegPath from '@ffmpeg-installer/ffmpeg'
-import ffmpeg from '@bropat/fluent-ffmpeg'
 import ffprobePath from '@ffprobe-installer/ffprobe'
+import ffmpeg from '@bropat/fluent-ffmpeg'
 ffmpeg.setFfmpegPath(ffmpegPath.path)
 ffmpeg.setFfprobePath(ffprobePath.path)
 
-const RMS = (buffer) => {
-  let sum = 0
-  const sampleCount = buffer.length / 2
-  for (let i = 0; i < buffer.length; i += 2) {
-    const sample = buffer.readInt16LE(i)
-    sum += sample * sample
-  }
-  return Math.sqrt(sum / sampleCount)
-}
-
-const truncate = (wav1, wav2) => {
+const truncate = (wav, mp3, rate_out) => {
   return new Promise((res, rej) => {
-    ffmpeg.ffprobe(wav1, (err, metadata) => {
+    ffmpeg.ffprobe(wav, (err, metadata) => {
       if (err) { return rej(err) }
       const duration = metadata.format.duration
       const newDuration = Math.max(0, duration - 1.1)
-      ffmpeg(wav1)
+      ffmpeg(wav)
         .setStartTime(0)
         .setDuration(newDuration)
-        .audioCodec('pcm_s16le')
-        .save(wav2)
+        .audioCodec('libmp3lame')
+        .format('mp3')
+        .save(mp3)
         .on('end', res)
         .on('error', rej)
         .run()
@@ -36,23 +29,32 @@ const truncate = (wav1, wav2) => {
 }
 
 export class Phrases extends EventEmitter {
-  constructor(rate=48000, tmpdir='/tmp') {
+  constructor(rate_in=16000, rate_out=48000, tmpdir='/tmp') {
     super()
-    this.rate = rate
+    this.rate_in = rate_in
+    this.rate_out = rate_out
     this.tmpdir = tmpdir
     this.speaking = false
     this._mute = false
-    this.noise = []
-    this.early = []
+    this.early = Buffer.alloc(0)
     this.quiet = 0
   }
 
   start() {
-    this.mic = new Mic(this.rate)
-    this.stream = this.mic.stream
-    this.stream.on('data', (data) => this._data(data))
-    this.stream.on('error', (err) => this.emit('error', err))
+    this.mic = new Mic(this.rate_in)
+    this.mic.stream.on('data', (data) => this._mic(data))
+    this.mic.stream.on('error', (err) => this.emit('error', err))
     this.mic.start()
+    const stdio = ['pipe', 'pipe', 'pipe']
+    const vad = spawn('./target/release/earshot-pipe', [], { stdio })
+    if (!vad.pid) { throw new Error('earshot-pipe: no pid') }
+    vad.stdout.setEncoding('utf8')
+    vad.stdout.pipe(split()).on('data', (score) => this._vad(score))
+    vad.once('exit', (code) => {
+      this.emit('error', new Error(`earshot-pipe: exit ${code}`))
+      this.stop()
+    })
+    this.vad = vad
   }
 
   mute(val=1) {
@@ -61,19 +63,23 @@ export class Phrases extends EventEmitter {
 
   stop() {
     this.mic.stop()
+    if (!this.vad) { return }
+    const vad = this.vad
+    this.vad = null
+    vad.removeAllListeners()
+    vad.kill('SIGKILL')
     if (!this.recorder) { return }
     this.recorder.stop()
     this.recorder = null
   }
 
-  _start() {
-    console.log('!! start')
-    const rate = this.rate
+  _speech() {
+    this.emit('speech')
     this.file = `${this.tmpdir}/phrase` + Date.now() + '.wav'
     const config = (child) => {
       return child
-        .addInputOptions(['-f', 's16le', '-ar', rate, '-ac', 1])
-        .outputOptions(['-c:a', 'pcm_s16le', '-ar', rate, '-ac', 1, '-f', 'wav', '-af', 'atrim=start=0.05,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.06'])
+        .addInputOptions(['-f', 's16le', '-ar', this.rate_in, '-ac', 1])
+        .outputOptions(['-c:a', 'pcm_s16le', '-ar', this.rate_in, '-ac', 1, '-f', 'wav', '-af', 'atrim=start=0.05,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.06'])
         .output(this.file)
     }
     this.recorder = new Recorder(config)
@@ -82,56 +88,49 @@ export class Phrases extends EventEmitter {
   }
 
   _next() {
-    console.log('!! next')
     this.recorder.stop()
     this.recorder = null
     setTimeout(() => {
-      const out = this.file.replace('.wav', '.short.wav')
-      truncate(this.file, out)
-        .then(() => this.emit('next', out))
+      const mp3 = this.file.replace('.wav', '.mp3')
+      truncate(this.file, mp3, this.rate_out)
+        .then(() => this.emit('next', mp3))
         .catch((err) => this.emit('error', err))
     }, 200)
   }
 
-  _data(data) {
+  _mic(data) {
+    if (!this.vad) { return }
+    this.vad.stdin.write(data)
     if (this._mute) { return }
-    const rms = RMS(data)
-    const samples = data.length / 2
-    const sampleSeconds = samples / this.rate
-    const noiseSeconds = this.noise.length * sampleSeconds
-    if (noiseSeconds < 3.0) {
-      this.noise.push(rms)
-      return
-    }
+    const earlySamples = Math.ceil(this.rate_in * 0.3)
+    this.early = Buffer.concat([this.early, data])
+    this.early = this.early.slice(-1 * Math.floor(earlySamples * 2))
+    if (!this.speaking) { return }
+    if (!this.recorder) { return }
+    this.recorder.stream.write(data)
+  }
 
-    if (!this.noiseAvg) {
-      const noise = this.noise.slice(-0.33 / sampleSeconds)
-      this.noiseAvg = (noise.reduce((a, b) => a + b , 0) / noise.length)
-      console.log('!! ready')
-    }
-
-    this.early.push(data)
-    this.early = this.early.slice(-1000)
-    const loud = rms >= (this.noiseAvg * 3.5)
-
+  _vad(score) {
+    if (this._mute) { return }
+    const loud = parseFloat(score) >= 0.75
     if (!this.speaking && loud) {
       this.speaking = true
-      this._start()
-      const earlySamples = Math.floor(0.3 / sampleSeconds)
-      this.early = this.early.slice(-1 * earlySamples)
-      this.early.forEach((data) => this.recorder.stream.write(data))
+      this._speech()
+      const earlySamples = Math.ceil(this.rate_in * 0.3)
+      this.early = this.early.slice(-1 * Math.floor(earlySamples * 2))
+      this.recorder.stream.write(this.early)
+      this.early = Buffer.alloc(0)
     } else if (this.speaking && !loud) {
       this.quiet++
-      const quietSeconds = this.quiet * sampleSeconds
+      const quietSeconds = (this.quiet * 256) / this.rate_in
       if (quietSeconds >= 2.0) {
         this._next()
         this.speaking = false
-        this.early = []
+        this.early = Buffer.alloc(0)
         this.quiet = 0
       }
+    } else if (this.speaking) {
+      this.quiet = 0
     }
-
-    if (!this.recorder) { return }
-    this.recorder.stream.write(data)
   }
 }
