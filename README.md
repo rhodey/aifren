@@ -1,17 +1,15 @@
-# ai fren
-ai fren voice assistant runs on linux with and without docker
+# AiFren(d)
+Small voice assistant that runs on linux with and without docker
 
-ffmpeg is platform independent and is used for mic and speaker
+AiFren grew into [Hecate](https://github.com/rhodey/hecate) and now I use this smaller repo to prototype Hecate audio changes
 
-mac and windows can be made to work easy by read these [two](src/mic.js) [files](src/speaker.js)
-
-## setup
-ai fren requires [tinfoil.sh](https://tinfoil.sh/) for private inference
+## Setup
+AiFren requires [tinfoil.sh](https://tinfoil.sh/) for private inference
 ```
 cp example.env .env
 ```
 
-## docker run
+## Docker run
 ```
 just build
 just run
@@ -23,13 +21,13 @@ just run \
   --no-playback
 ```
 
-## native run
-rust [earshot](http://crates.io/crates/earshot) adds [voice activity detection](https://en.wikipedia.org/wiki/Voice_activity_detection)
+## Native run
+Rust [earshot](http://crates.io/crates/earshot) adds [voice activity detection](https://en.wikipedia.org/wiki/Voice_activity_detection)
 ```
 cargo build --release
 ```
 
-then
+Then
 ```
 npm install
 npm start
@@ -41,14 +39,7 @@ npm start -- \
   --no-playback
 ```
 
-## roadmap
-i plan to move this into browser world
-
-i want to do character animations to give the ai a body
-
-i wanted to succeed with cli first for fun
-
-## license
+## License
 mike@rhodey.org
 
-mit
+MIT
