@@ -20,18 +20,29 @@ async function main() {
   const audioModel = args.audio ?? 'whisper-large-v3-turbo' // also: voxtral-small-24b
   const llmModel = args.llm ?? 'llama3-3-70b' // also: kimi-k2-5
   console.log('!! audio', audioModel, 'llm', llmModel)
-  console.log('!! ready')
-
   const playback = args.playback !== false
   const voice = args.voice ?? 'en+f3'
-  const phrases = new Phrases('./fren')
+  console.log('!! ready')
+
+  const textFn = async (mp3) => {
+    console.log('!! transcribe')
+    let text = await client.audio.transcriptions.create({
+      model: audioModel, language: 'en',
+      file: fs.createReadStream(mp3)
+    })
+    text = text.text.trim()
+    console.log('user', text)
+    return text
+  }
+
+  const phrases = new Phrases(textFn, './fren')
   const history = [{ role: 'system', content: 'respond with short messages.' }]
 
   phrases.on('voice', () => {
     console.log('!! user voice')
   })
 
-  phrases.on('next', async (mp3) => {
+  phrases.on('next', async (mp3, text) => {
     console.log('!! next')
     phrases.mute(1)
 
@@ -39,12 +50,6 @@ async function main() {
       await playAudio(mp3).catch(onError)
     }
 
-    console.log('!! transcribe')
-    let text = await client.audio.transcriptions.create({
-      model: audioModel, prompt: 'transcribe the audio',
-      file: fs.createReadStream(mp3)
-    })
-    text = text.text.trim()
     console.log('user', text)
     history.push({ role: 'user', content: text })
 
