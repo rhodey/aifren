@@ -7,7 +7,6 @@ ffmpeg.setFfmpegPath(ffmpegPath.path)
 
 export function playAudio(wav, rate_out=48000) {
   const stdio = ['pipe', 'pipe', 'pipe']
-  // todo: ask chatgpt args for mac and test them
   const args = ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-ar', rate_out, '-ac', 2, '-f', 'alsa', 'hw:0,0']
   const child = spawn(ffmpegPath.path, args, { stdio })
   return new Promise((res, rej) => {
