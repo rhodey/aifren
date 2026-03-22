@@ -16,7 +16,7 @@ cp example.env .env
 just build
 just run
 just run \
-  --audio voxtral-small-24b \
+  --audio whisper-large-v3-turbo \
   --llm llama3-3-70b \
   --rate-out 48000 \
   --voice 'en+f3' \
@@ -34,7 +34,7 @@ then
 npm install
 npm start
 npm start -- \
-  --audio voxtral-small-24b \
+  --audio whisper-large-v3-turbo \
   --llm llama3-3-70b \
   --rate-out 48000 \
   --voice 'en+f3' \

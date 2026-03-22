@@ -6,7 +6,7 @@ import { Phrases } from './phrases.js'
 import { playAudio, speak } from './speaker.js'
 import { TinfoilAI } from 'tinfoil'
 
-dotenv.config()
+dotenv.config({ quiet: true })
 const client = new TinfoilAI({ apiKey: process.env.tinfoil_key })
 
 function onError(err) {
@@ -17,7 +17,7 @@ function onError(err) {
 async function main() {
   await mkdirp('./fren')
   const args = minimist(process.argv.slice(2))
-  const audioModel = args.audio ?? 'voxtral-small-24b' // also: whisper-large-v3-turbo
+  const audioModel = args.audio ?? 'whisper-large-v3-turbo' // also: voxtral-small-24b
   const llmModel = args.llm ?? 'llama3-3-70b' // also: kimi-k2-5
   console.log('!! audio', audioModel, 'llm', llmModel)
   console.log('!! ready')
@@ -30,8 +30,8 @@ async function main() {
   const phrases = new Phrases(rate_in, rate_out, './fren')
   const history = [{ role: 'system', content: 'respond with short messages.' }]
 
-  phrases.on('speech', () => {
-    console.log('!! speech')
+  phrases.on('voice', () => {
+    console.log('!! user voice')
   })
 
   phrases.on('next', async (mp3) => {
@@ -57,9 +57,12 @@ async function main() {
     console.log('llm', text)
     history.push({ role: 'assistant', content: text })
 
-    console.log('!! speak')
+    console.log('!! ai voice')
     await speak(text, rate_out, voice)
     phrases.mute(0)
+    console.log('!! ready')
+    process.removeAllListeners('unhandledRejection')
+    process.removeAllListeners('uncaughtException')
   })
 
   phrases.once('error', onError)

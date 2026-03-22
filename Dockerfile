@@ -6,15 +6,13 @@ RUN mkdir -p /app/src
 WORKDIR /app
 COPY Cargo.toml .
 COPY Cargo.lock .
-RUN touch src/earshot.rs
-RUN cargo fetch --locked
-
-COPY src src
+COPY src/earshot.rs src/earshot.rs
 RUN cargo build --release
 
 COPY package.json .
 COPY package-lock.json .
 RUN npm install
+COPY src src
 
 ENTRYPOINT ["npm", "start", "--"]
 CMD [""]

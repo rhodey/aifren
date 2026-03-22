@@ -34,6 +34,7 @@ export class Mic {
     if (!this.child) { return }
     const child = this.child
     this.child = null
+    child.removeAllListeners()
     try {
       this.stream.end()
     } catch (err) { }
@@ -41,7 +42,6 @@ export class Mic {
       this.stream.removeAllListeners()
       child.kill('SIGKILL')
     }
-    this.child.removeAllListeners()
     child.kill('SIGTERM')
     setTimeout(kill, 1000)
   }

@@ -37,6 +37,7 @@ export class Phrases extends EventEmitter {
     this.speaking = false
     this._mute = false
     this.early = Buffer.alloc(0)
+    this.scores = []
     this.quiet = 0
   }
 
@@ -59,6 +60,14 @@ export class Phrases extends EventEmitter {
 
   mute(val=1) {
     this._mute = val
+    if (!val) { return }
+    this.speaking = false
+    this.early = Buffer.alloc(0)
+    this.scores = []
+    this.quiet = 0
+    if (!this.recorder) { return }
+    this.recorder.stop()
+    this.recorder = null
   }
 
   stop() {
@@ -73,8 +82,8 @@ export class Phrases extends EventEmitter {
     this.recorder = null
   }
 
-  _speech() {
-    this.emit('speech')
+  _voice() {
+    this.emit('voice')
     this.file = `${this.tmpdir}/phrase` + Date.now() + '.wav'
     const config = (child) => {
       return child
@@ -94,7 +103,7 @@ export class Phrases extends EventEmitter {
       const mp3 = this.file.replace('.wav', '.mp3')
       truncate(this.file, mp3, this.rate_out)
         .then(() => this.emit('next', mp3))
-        .catch((err) => this.emit('error', err))
+        .catch((err) => this.emit('warn', err)) // todo: sometimes
     }, 200)
   }
 
@@ -112,21 +121,30 @@ export class Phrases extends EventEmitter {
 
   _vad(score) {
     if (this._mute) { return }
-    const loud = parseFloat(score) >= 0.75
+    const frame_sz = 256
+    const earlySamples = Math.ceil(this.rate_in * 0.3)
+    const earlyScores = Math.ceil(earlySamples / frame_sz)
+    this.scores.push(parseFloat(score))
+    const ready = this.scores.length >= earlyScores
+    this.scores = this.scores.slice(-1 * earlyScores)
+    score = this.scores.reduce((acc, s) => acc + s, 0) / this.scores.length
+    const loud = ready && score >= 0.75
+
     if (!this.speaking && loud) {
       this.speaking = true
-      this._speech()
+      this._voice()
       const earlySamples = Math.ceil(this.rate_in * 0.3)
       this.early = this.early.slice(-1 * Math.floor(earlySamples * 2))
       this.recorder.stream.write(this.early)
       this.early = Buffer.alloc(0)
     } else if (this.speaking && !loud) {
       this.quiet++
-      const quietSeconds = (this.quiet * 256) / this.rate_in
+      const quietSeconds = (this.quiet * frame_sz) / this.rate_in
       if (quietSeconds >= 2.0) {
         this._next()
         this.speaking = false
         this.early = Buffer.alloc(0)
+        this.scores = []
         this.quiet = 0
       }
     } else if (this.speaking) {
