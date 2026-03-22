@@ -7,7 +7,6 @@ ffmpeg.setFfmpegPath(ffmpegPath.path)
 
 export function playAudio(wav, rate_out=48000) {
   const stdio = ['pipe', 'pipe', 'pipe']
-  // todo: ask chatgpt args for mac and test them
   const args = ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0', '-ar', rate_out, '-ac', 2, '-f', 'alsa', 'hw:0,0']
   const child = spawn(ffmpegPath.path, args, { stdio })
   return new Promise((res, rej) => {
@@ -37,7 +36,7 @@ const resample = (wav1, wav2, rate_out) => {
   })
 }
 
-export async function speak(text, rate_out=48000, voice='en+f3') {
+export async function speak(text, voice='en+f3', rate_out=48000) {
   const bytes = await text2wav(text, { voice })
   const wav1 = '/tmp/tts1.wav'
   fs.writeFileSync(wav1, Buffer.from(bytes))

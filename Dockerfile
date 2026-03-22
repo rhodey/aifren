@@ -14,5 +14,7 @@ COPY package-lock.json .
 RUN npm install
 COPY src src
 
+COPY .asoundrc /root/.asoundrc
+
 ENTRYPOINT ["npm", "start", "--"]
 CMD [""]

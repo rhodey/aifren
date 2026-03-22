@@ -20,34 +20,36 @@ async function main() {
   const audioModel = args.audio ?? 'whisper-large-v3-turbo' // also: voxtral-small-24b
   const llmModel = args.llm ?? 'llama3-3-70b' // also: kimi-k2-5
   console.log('!! audio', audioModel, 'llm', llmModel)
-  console.log('!! ready')
-
-  const rate_in = 16000
-  const rate_out = args['rate-out'] ?? 48000
   const playback = args.playback !== false
   const voice = args.voice ?? 'en+f3'
+  console.log('!! ready')
 
-  const phrases = new Phrases(rate_in, rate_out, './fren')
+  const textFn = async (mp3) => {
+    console.log('!! transcribe')
+    let text = await client.audio.transcriptions.create({
+      model: audioModel, language: 'en',
+      file: fs.createReadStream(mp3)
+    })
+    text = text.text.trim()
+    console.log('user', text)
+    return text
+  }
+
+  const phrases = new Phrases(textFn, './fren')
   const history = [{ role: 'system', content: 'respond with short messages.' }]
 
   phrases.on('voice', () => {
     console.log('!! user voice')
   })
 
-  phrases.on('next', async (mp3) => {
+  phrases.on('next', async (mp3, text) => {
     console.log('!! next')
     phrases.mute(1)
 
     if (playback) {
-      await playAudio(mp3, rate_out).catch(onError)
+      await playAudio(mp3).catch(onError)
     }
 
-    console.log('!! transcribe')
-    let text = await client.audio.transcriptions.create({
-      model: audioModel, prompt: 'transcribe the audio',
-      file: fs.createReadStream(mp3)
-    })
-    text = text.text.trim()
     console.log('user', text)
     history.push({ role: 'user', content: text })
 
@@ -58,7 +60,7 @@ async function main() {
     history.push({ role: 'assistant', content: text })
 
     console.log('!! ai voice')
-    await speak(text, rate_out, voice)
+    await speak(text, voice)
     phrases.mute(0)
     console.log('!! ready')
     process.removeAllListeners('unhandledRejection')
