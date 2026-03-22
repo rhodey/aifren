@@ -4,7 +4,7 @@ Small voice assistant that runs on linux with and without docker
 AiFren grew into [Hecate](https://github.com/rhodey/hecate) and now I use this smaller repo to prototype Hecate audio changes
 
 ## Setup
-AiFren requires [tinfoil.sh](https://tinfoil.sh/) for private inference
+AiFren requires [tinfoil.sh](https://tinfoil.sh/) for private inference and a small config for shared microphone
 ```
 cp example.env .env
 cp .asoundrc ~/.asoundrc
