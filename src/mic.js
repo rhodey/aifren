@@ -11,7 +11,7 @@ export class Mic {
 
   start() {
     const stdio = ['pipe', 'pipe', 'pipe']
-    const args = ['-hide_banner', '-loglevel', 'error', '-f', 'alsa', '-i', 'hw:0,0', '-ac', 1, '-ar', this.rate, '-f', 's16le', 'pipe:1']
+    const args = ['-hide_banner', '-loglevel', 'error', '-f', 'alsa', '-i', 'micshare', '-ac', 1, '-ar', this.rate, '-f', 's16le', 'pipe:1']
     const child = spawn(ffmpegPath.path, args, { stdio })
     if (!child.pid) { throw new Error('ffmpeg: no pid') }
     this.child = child

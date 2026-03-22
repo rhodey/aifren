@@ -36,7 +36,7 @@ const resample = (wav1, wav2, rate_out) => {
   })
 }
 
-export async function speak(text, rate_out=48000, voice='en+f3') {
+export async function speak(text, voice='en+f3', rate_out=48000) {
   const bytes = await text2wav(text, { voice })
   const wav1 = '/tmp/tts1.wav'
   fs.writeFileSync(wav1, Buffer.from(bytes))

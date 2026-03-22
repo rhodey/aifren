@@ -22,12 +22,9 @@ async function main() {
   console.log('!! audio', audioModel, 'llm', llmModel)
   console.log('!! ready')
 
-  const rate_in = 16000
-  const rate_out = args['rate-out'] ?? 48000
   const playback = args.playback !== false
   const voice = args.voice ?? 'en+f3'
-
-  const phrases = new Phrases(rate_in, rate_out, './fren')
+  const phrases = new Phrases('./fren')
   const history = [{ role: 'system', content: 'respond with short messages.' }]
 
   phrases.on('voice', () => {
@@ -39,7 +36,7 @@ async function main() {
     phrases.mute(1)
 
     if (playback) {
-      await playAudio(mp3, rate_out).catch(onError)
+      await playAudio(mp3).catch(onError)
     }
 
     console.log('!! transcribe')
@@ -58,7 +55,7 @@ async function main() {
     history.push({ role: 'assistant', content: text })
 
     console.log('!! ai voice')
-    await speak(text, rate_out, voice)
+    await speak(text, voice)
     phrases.mute(0)
     console.log('!! ready')
     process.removeAllListeners('unhandledRejection')

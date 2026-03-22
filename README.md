@@ -7,6 +7,7 @@ AiFren grew into [Hecate](https://github.com/rhodey/hecate) and now I use this s
 AiFren requires [tinfoil.sh](https://tinfoil.sh/) for private inference
 ```
 cp example.env .env
+cp .asoundrc ~/.asoundrc
 ```
 
 ## Docker run
